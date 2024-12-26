@@ -5,11 +5,11 @@ import bcrypt from 'bcrypt';
 const SECRET = 'your_jwt_secret';
 
 export const registerUser = async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, email, phone, address, role_id } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-        'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
-        [username, hashedPassword]
+        'INSERT INTO users (username, password, email, phone, address, role_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [username, hashedPassword, email, phone, address, role_id]
     );
     res.json(result.rows[0]);
 };
@@ -23,6 +23,26 @@ export const loginUser = async (req, res) => {
     }
     const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: '1h' });
     res.json({ token });
+};
+
+export const me = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT users.username, users.email, users.phone, users.address, roles.name as role FROM users LEFT JOIN roles on roles.id = users.role_id WHERE users.id = $1',
+            [req.user.userId]
+        );
+        if(result.length > 0)
+            return res.status(200).send({
+                status: true,
+                data: result.rows[0]
+            });
+        
+    } catch (error) {
+        res.status(500).send({
+            status: false,
+            message: error.message
+        })
+    }
 };
 
 export const editProfile = async (req, res) => {
